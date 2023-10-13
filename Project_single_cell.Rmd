@@ -1,0 +1,86 @@
+---
+title: "Unknown_analysis_single_cell"
+author: "Filippo Mirolo"
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    latex_engine: xelatex
+editor_options: 
+  chunk_output_type: console
+  markdown: 
+    wrap: sentence
+---
+## Dependencies
+
+```{r}
+set.seed(62)
+library(tidyverse)
+library(Seurat)
+library(patchwork)
+```
+
+## Data exploration
+
+```{r}
+data <- readRDS("../Filippo_Mirolo_Single_cell_project/data/BUM.rds")
+dim(data)
+colnames(data)[1:15]
+```
+  Starting creating a `Seurat` object, with `CreateSeuratObject` needs the count matrix and further parameters to filter and cut out some genes or cell which are useless. I'm passing to it the min number of genes (features) and (cells) to be kept.
+```{r}
+help(CreateSeuratObject)
+dat <- CreateSeuratObject(data, min.cells = 8, min.features = 70)
+```
+  Now i continue with the exploration, I will looking for number of unique genes between cells (these are quite no informative for all the analysis because bring noise and can't be compared), doublets, total number of molecules (will be useful later for normalization). High variability of the total number of molecules make the analysis very unstable, in fact can introduce errors, also quite important in the normalization process. Lastly the number of mitocondrial molecules are an index of damaged cells, which can have altered pattern of transcription.
+```{r}
+help(PercentageFeatureSet)
+dat[["percent_mt"]] <- PercentageFeatureSet(dat, pattern = "^MT-")
+head(dat@meta.data, 5)
+sum(dat@meta.data$percent_mt)
+```
+
+```{r}
+if (sum(dat@meta.data$percent_mt) > 0){
+  p1<- VlnPlot(dat, features = c("nFeature_RNA", "nCount_RNA", "percent_mt"),
+             ncol = 3, pt.size = 0.01)
+  p1
+  
+  plot1 <- FeatureScatter(dat, feature1 = "nCount_RNA", feature2 = "percent_mt")
+  plot2 <- FeatureScatter(dat, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+  
+  plot1 + plot2
+}
+```
+
+```{r}
+dat <- NormalizeData(dat)
+dat <- FindVariableFeatures(dat)
+dat <- ScaleData(dat, features = colnames(dat))
+```
+  Cell cycle detection is really important in this kind of analysis, where there is lot of variability. In fact the same cell types can have different transcription pattern if they are in different phrases.
+```{r}
+s_genes <- cc.genes$s.genes    # S phrase reference
+g2m_genes <- cc.genes$g2m.genes   # G2M phrase reference
+
+help(CellCycleScoring)
+cell_cycle <- CellCycleScoring(dat, s.features = s_genes, g2m.features = g2m_genes, set.ident = F)
+cell_cycle <- RunPCA(cell_cycle, features = c(s_genes, g2m_genes))
+DimPlot(cell_cycle)
+```
+
+```{r}
+pca <- RunPCA(dat)
+umap <- 
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+
+
+
