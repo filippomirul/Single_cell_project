@@ -28,12 +28,10 @@ colnames(data)[1:15]
 ```
   Starting creating a `Seurat` object, with `CreateSeuratObject` needs the count matrix and further parameters to filter and cut out some genes or cell which are useless. I'm passing to it the min number of genes (features) and (cells) to be kept.
 ```{r}
-help(CreateSeuratObject)
 dat <- CreateSeuratObject(data, min.cells = 8, min.features = 70)
 ```
   Now i continue with the exploration, I will looking for number of unique genes between cells (these are quite no informative for all the analysis because bring noise and can't be compared), doublets, total number of molecules (will be useful later for normalization). High variability of the total number of molecules make the analysis very unstable, in fact can introduce errors, also quite important in the normalization process. Lastly the number of mitocondrial molecules are an index of damaged cells, which can have altered pattern of transcription.
 ```{r}
-help(PercentageFeatureSet)
 dat[["percent_mt"]] <- PercentageFeatureSet(dat, pattern = "^MT-")
 head(dat@meta.data, 5)
 sum(dat@meta.data$percent_mt)
@@ -70,7 +68,6 @@ DimPlot(cell_cycle)
 
 ```{r}
 pca <- RunPCA(dat)
-umap <- 
 ```
 
 ```{r}
