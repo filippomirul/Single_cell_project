@@ -17,12 +17,15 @@ set.seed(62)
 library(tidyverse)
 library(Seurat)
 library(patchwork)
+library(celldex)
+library(SingleR)
+library(SummarizedExperiment)
 ```
 
 ## Data exploration
 
 ```{r}
-data <- readRDS("../Filippo_Mirolo_Single_cell_project/data/BUM.rds")
+data <- readRDS("../Single_cell_project/data/EOB.rds")
 dim(data)
 colnames(data)[1:15]
 ```
@@ -53,31 +56,56 @@ if (sum(dat@meta.data$percent_mt) > 0){
 ```{r}
 dat <- NormalizeData(dat)
 dat <- FindVariableFeatures(dat)
-dat <- ScaleData(dat, features = colnames(dat))
+dat <- ScaleData(dat)
 ```
   Cell cycle detection is really important in this kind of analysis, where there is lot of variability. In fact the same cell types can have different transcription pattern if they are in different phrases.
 ```{r}
 s_genes <- cc.genes$s.genes    # S phrase reference
 g2m_genes <- cc.genes$g2m.genes   # G2M phrase reference
 
-help(CellCycleScoring)
 cell_cycle <- CellCycleScoring(dat, s.features = s_genes, g2m.features = g2m_genes, set.ident = F)
 cell_cycle <- RunPCA(cell_cycle, features = c(s_genes, g2m_genes))
 DimPlot(cell_cycle)
 ```
 
 ```{r}
-pca <- RunPCA(dat)
+dat <- RunPCA(dat)
+dat <- RunUMAP(dat, reduction = "pca", dims = 1:20)
+DimPlot(dat)
+dat <- FindNeighbors(dat, reduction = "pca", dims = 1:20)
+dat <- FindClusters(dat)
+DimPlot(dat)
+```
+
+```{r}
+ref <- MouseRNAseqData()
+length(ref$label.main)
+ref$label.main[1:30]
 ```
 
 ```{r}
 
+pred <- SingleR(test=dat[["RNA"]]@counts, 
+    ref=ref.data, labels=ref.data$label.main, fine.tune = TRUE, prune = TRUE)
+length(pred)
 ```
 
 ```{r}
-
+table(pred$labels)
+table(pred$pruned.labels)
+table(is.na(pred$pruned.labels))
 ```
 
+```{r}
+plotScoreHeatmap(pred)
+```
 
+```{r}
+identical(colnames(dat),rownames(pred))
+dat@meta.data$SingleR_label <- pred$pruned.labels
+
+DimPlot(dat, group.by = "SingleR_label")
+DimPlot(dat)
+```
 
 
