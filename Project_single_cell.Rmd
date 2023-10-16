@@ -71,9 +71,9 @@ variability. In fact the same cell types can have different transcription patter
 s_genes <- cc.genes$s.genes    # S phrase reference
 g2m_genes <- cc.genes$g2m.genes   # G2M phrase reference
 
-cell_cycle <- CellCycleScoring(dat, s.features = s_genes, g2m.features = g2m_genes, set.ident = F)
-cell_cycle <- RunPCA(cell_cycle, features = c(s_genes, g2m_genes))
-DimPlot(cell_cycle)
+#cell_cycle <- CellCycleScoring(dat, s.features = s_genes, g2m.features = g2m_genes, set.ident = F)
+#cell_cycle <- RunPCA(cell_cycle, features = c(s_genes, g2m_genes))
+#DimPlot(cell_cycle)
 ```
 
 ```{r}
@@ -93,7 +93,7 @@ ref$label.main[1:30]
 
 ```{r}
 pred <- SingleR(test=dat[["RNA"]]@counts,
-                ref=ref.data, labels=ref.data$label.main, fine.tune = TRUE, prune = TRUE)
+                ref=ref, labels=ref$label.main, fine.tune = TRUE, prune = TRUE)
 length(pred)
 ```
 
