@@ -92,9 +92,8 @@ ref$label.main[1:30]
 ```
 
 ```{r}
-
-pred <- SingleR(test=dat[["RNA"]]@counts, 
-    ref=ref.data, labels=ref.data$label.main, fine.tune = TRUE, prune = TRUE)
+pred <- SingleR(test=dat[["RNA"]]@counts,
+                ref=ref.data, labels=ref.data$label.main, fine.tune = TRUE, prune = TRUE)
 length(pred)
 ```
 
