@@ -25,7 +25,8 @@ library(SummarizedExperiment)
 ## Data exploration
 
 ```{r}
-data <- readRDS("../Single_cell_project/data/EOB.rds")
+setwd("C:\\Users\\filoa\\OneDrive\\Desktop\\Single_cell")
+data <- readRDS("Single_cell_project/data/EOB.rds")
 dim(data)
 colnames(data)[1:15]
 ```
@@ -40,7 +41,7 @@ dat <- CreateSeuratObject(data, min.cells = 8, min.features = 70)
 doublets, total number of molecules (will be useful later for normalization). High variability of 
 the total number of molecules make the analysis very unstable, in fact can introduce errors, also 
 quite important in the normalization process. Lastly the number of mitochondrial molecules are an 
-index of damaged cells, which can have altered pattern of transcription.
+index of damaged cells, which can have altered pattern of transcription. ERCC external RNA control consortium.
 ```{r}
 dat[["percent_mt"]] <- PercentageFeatureSet(dat, pattern = "^ERCC-")
 head(dat@meta.data, 5)
@@ -48,26 +49,46 @@ sum(dat@meta.data$percent_mt)
 ```
 
 ```{r}
-if (sum(dat@meta.data$percent_mt) > 0){
-  p1<- VlnPlot(dat, features = c("nFeature_RNA", "nCount_RNA", "percent_mt"),
-             ncol = 3, pt.size = 0.01)
-  p1
-  
-  plot1 <- FeatureScatter(dat, feature1 = "nCount_RNA", feature2 = "percent_mt")
-  plot2 <- FeatureScatter(dat, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
-  
-  plot1 + plot2
-}
-```
-  Removing those who have too mach mitochondrial RNA and those who have not a good amount of features.
-```{r}
-dat <- subset(dat, subset = percent_mt < 8 &
-              nFeature_RNA > 250)
+d <- median(dat$nCount_RNA)
 ```
 
 ```{r}
-dat <- NormalizeData(dat)
-dat <- FindVariableFeatures(dat)
+p1<- VlnPlot(dat, features = c("nFeature_RNA", "nCount_RNA", "percent_mt"),
+             ncol = 3, pt.size = 0.01)
+p1
+  
+plot1 <- FeatureScatter(dat, feature1 = "nCount_RNA", feature2 = "percent_mt")
+plot2 <- FeatureScatter(dat, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+  
+plot1 + plot2
+
+```
+  Removing those who have too mach mitochondrial RNA and those who have not a good amount of features.
+```{r}
+dat <- subset(dat, subset = percent_mt < 4 &
+              nFeature_RNA > 500 &
+                nCount_RNA < 2*d)
+```
+
+```{r}
+p1<- VlnPlot(dat, features = c("nFeature_RNA", "nCount_RNA", "percent_mt"),
+             ncol = 3, pt.size = 0.01)
+p1
+  
+plot1 <- FeatureScatter(dat, feature1 = "nCount_RNA", feature2 = "percent_mt")
+plot2 <- FeatureScatter(dat, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+  
+plot1 + plot2
+
+```
+Scaling apply a z-score transformation (normalization) across cells. This is meant to give the same weight to all the cells, accessible thanks to @scale.data.
+
+  I really don't understand which are the assumptions behind the normalization?
+Why we can scale the data?
+
+```{r}
+dat <- NormalizeData(dat)   # normalization
+dat <- FindVariableFeatures(dat)  # feature selection
 dat <- ScaleData(dat)
 ```
   Cell cycle detection is really important in this kind of analysis, where there is lot of 
@@ -82,13 +103,19 @@ g2m_genes <- cc.genes$g2m.genes   # G2M phrase reference
 ```
 
 ```{r}
-dat <- RunPCA(dat)
+dat <- RunPCA(dat, features = VariableFeatures(object = dat), verbose = F)
+ElbowPlot(dat)
+```
+
+```{r}
 dat <- RunUMAP(dat, reduction = "pca", dims = 1:20)
 DimPlot(dat)
 dat <- FindNeighbors(dat, reduction = "pca", dims = 1:20)
 dat <- FindClusters(dat)
 DimPlot(dat)
 ```
+
+
 
 ```{r}
 ref <- MouseRNAseqData()
