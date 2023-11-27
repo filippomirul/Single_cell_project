@@ -49,10 +49,6 @@ sum(dat@meta.data$percent_mt)
 ```
 
 ```{r}
-d <- median(dat$nCount_RNA)
-```
-
-```{r}
 p1<- VlnPlot(dat, features = c("nFeature_RNA", "nCount_RNA", "percent_mt"),
              ncol = 3, pt.size = 0.01)
 p1
@@ -61,13 +57,15 @@ plot1 <- FeatureScatter(dat, feature1 = "nCount_RNA", feature2 = "percent_mt")
 plot2 <- FeatureScatter(dat, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
   
 plot1 + plot2
-
 ```
+
   Removing those who have too mach mitochondrial RNA and those who have not a good amount of features.
+
 ```{r}
+d <- median(dat$nCount_RNA)
 dat <- subset(dat, subset = percent_mt < 4 &
               nFeature_RNA > 500 &
-                nCount_RNA < 2*d)
+                nCount_RNA < 3*d)
 ```
 
 ```{r}
@@ -79,8 +77,8 @@ plot1 <- FeatureScatter(dat, feature1 = "nCount_RNA", feature2 = "percent_mt")
 plot2 <- FeatureScatter(dat, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
   
 plot1 + plot2
-
 ```
+
 Scaling apply a z-score transformation (normalization) across cells. This is meant to give the same weight to all the cells, accessible thanks to @scale.data.
 
   I really don't understand which are the assumptions behind the normalization?
@@ -91,52 +89,111 @@ dat <- NormalizeData(dat)   # normalization
 dat <- FindVariableFeatures(dat)  # feature selection
 dat <- ScaleData(dat)
 ```
+
   Cell cycle detection is really important in this kind of analysis, where there is lot of 
 variability. In fact the same cell types can have different transcription pattern if they are in different phrases.
+
 ```{r}
 s_genes <- cc.genes$s.genes    # S phrase reference
 g2m_genes <- cc.genes$g2m.genes   # G2M phrase reference
 
-#cell_cycle <- CellCycleScoring(dat, s.features = s_genes, g2m.features = g2m_genes, set.ident = F)
-#cell_cycle <- RunPCA(cell_cycle, features = c(s_genes, g2m_genes))
-#DimPlot(cell_cycle)
+cell_cycle <- CellCycleScoring(dat, s.features = s_genes, g2m.features = g2m_genes, set.ident = F)
+cell_cycle <- RunPCA(cell_cycle, features = c(s_genes, g2m_genes))
+DimPlot(cell_cycle)
 ```
+## Dimensionality reduction
 
+  Since we are working with very large data set and now on with normalized and scaled data, the next step is to reduce the dimensionality. To do so we can use different metod, the most commun is PCA, but this 
+  
+  Why we are using before PCA and then an other reduction method?
+  
 ```{r}
 dat <- RunPCA(dat, features = VariableFeatures(object = dat), verbose = F)
 ElbowPlot(dat)
 ```
 
+  The way t-SNE works, it is impossible for it to preserve the global structure while performing dimension reduction. Only local structures are preserved, while the distances between groups are drastically different depending on the run.
+  
 ```{r}
-dat <- RunUMAP(dat, reduction = "pca", dims = 1:20)
+dat <- RunTSNE(dat, dims = 1:30)
 DimPlot(dat)
-dat <- FindNeighbors(dat, reduction = "pca", dims = 1:20)
+```
+
+Pros of UMAP
+- Non linear datasets: UMAP is manifold learning dimension reduction technique and thus captures the non linearity of real world datasets. It is comparable to t-SNE in terms of data visualisation.
+- The mathematical improvements in UMAP allow superior run time performance over t-SNE
+- In comparison to t-SNE, UMAP offers better preservation of a data’s global structure. 
+- Unlike t-SNE, UMAP has no computational restrictions on embedding dimensions and can be used as an effective pre-processing step to boost the performance of density based clustering algorithms.
+
+Cons
+- One of the core assumptions of UMAP is that there exists manifold structure in the data. Because of this, UMAP can tend to find manifold structure within the noise of a dataset.
+
+```{r}
+dat <- RunUMAP(dat, dims = 1:30)
+DimPlot(dat)
+```
+
+```{r}
+DimPlot(dat)
+dat <- FindNeighbors(dat, reduction = "umap", dims = 1:2)
 dat <- FindClusters(dat)
 DimPlot(dat)
 ```
 
+```{r}
+markers <- FindMarkers(dat, 
+                          ident.1 = 0, 
+                          min.pct = 0.25)
+markers
 
+dat_markers <- FindAllMarkers(dat, 
+                               only.pos = TRUE, 
+                               min.pct = 0.25, 
+                               logfc.threshold = 0.25)
+
+dat_markers %>%
+    group_by(cluster) %>%
+    slice_max(n=2,order_by=avg_log2FC)
+levels(dat)
+```
 
 ```{r}
 ref <- MouseRNAseqData()
-length(ref$label.main)
-ref$label.main[1:30]
+ref
+ref$label.main[1:50]
 ```
 
 ```{r}
-pred <- SingleR(test=dat[["RNA"]]@counts,
-                ref=ref, labels=ref$label.main, fine.tune = TRUE, prune = TRUE)
-length(pred)
+ref.data <- HumanPrimaryCellAtlasData()
+ref.data
+ref.data$label.main[1:50]
 ```
 
 ```{r}
-table(pred$labels)
-table(pred$pruned.labels)
-table(is.na(pred$pruned.labels))
+dat_exp <- as.SingleCellExperiment(DietSeurat(dat))
+pred_mouse <- SingleR(test = dat_exp, 
+                  ref = ref, labels = ref$label.main, fine.tune = TRUE, prune = TRUE)
+pred_human <- SingleR(test=dat_exp,
+                ref=ref.data, labels=ref.data$label.main, fine.tune = TRUE, prune = TRUE)
+length(pred_human)
+length(pred_mouse)
 ```
 
 ```{r}
-plotScoreHeatmap(pred)
+table(pred_mouse$labels)
+table(pred_mouse$pruned.labels)
+table(is.na(pred_mouse$pruned.labels))
+```
+
+```{r}
+table(pred_human$labels)
+table(pred_human$pruned.labels)
+table(is.na(pred_human$pruned.labels))
+```
+
+```{r}
+plotScoreHeatmap(pred_human)
+plotScoreHeatmap(pred_mouse)
 ```
 
 ```{r}
